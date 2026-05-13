@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"database/sql"
@@ -10,20 +10,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// App struct (para injeção de dependência)
 type App struct {
 	DB         *sql.DB
 	MasterKey  string
 }
 
 func main() {
-	// Carrega o .env para desenvolvimento local. Em produção, isso não fará nada.
 	_ = godotenv.Load()
 
-	// --- Configuração ---
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8001" // Porta padrão
+		port = "8001"
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -36,36 +33,33 @@ func main() {
 		log.Fatal("MASTER_KEY deve ser definida")
 	}
 
-	// --- Conexão com o Banco ---
 	db, err := connectDB(databaseURL)
 	if err != nil {
-		log.Fatalf("Não foi possível conectar ao banco de dados: %v", err)
+		log.Fatalf("NÃ£o foi possÃ­vel conectar ao banco de dados: %v", err)
 	}
 	defer db.Close()
+	if err := ensureSchema(db); err != nil {
+		log.Fatalf("NÃ£o foi possÃ­vel preparar o schema do banco: %v", err)
+	}
 
 	app := &App{
 		DB:         db,
 		MasterKey:  masterKey,
 	}
 
-	// --- Rotas da API ---
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", app.healthHandler)
 
-	// Endpoint público para validar uma chave
 	mux.HandleFunc("/validate", app.validateKeyHandler)
 
-	// Endpoints de "admin" para criar/gerenciar chaves
-	// Eles são protegidos pelo middleware de autenticação
 	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
 
-	log.Printf("Serviço de Autenticação (Go) rodando na porta %s", port)
+	log.Printf("ServiÃ§o de AutenticaÃ§Ã£o (Go) rodando na porta %s", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// connectDB inicializa e testa a conexão com o PostgreSQL
 func connectDB(databaseURL string) (*sql.DB, error) {
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
@@ -78,4 +72,20 @@ func connectDB(databaseURL string) (*sql.DB, error) {
 
 	log.Println("Conectado ao PostgreSQL com sucesso!")
 	return db, nil
+}
+
+func ensureSchema(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS api_keys (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(100) NOT NULL,
+			key_hash VARCHAR(64) NOT NULL UNIQUE,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err == nil {
+		log.Println("Schema do auth-service verificado com sucesso.")
+	}
+	return err
 }

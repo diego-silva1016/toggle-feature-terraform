@@ -3,9 +3,11 @@ name: Microservices CI/CD
 on:
   push:
     branches:
+      - main
       - master
     paths:
       - "Microservices/**"
+      - ".github/workflows/microservices-ci-cd.yml"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,7 @@ permissions:
 
 concurrency:
   group: microservices-cicd-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   AWS_REGION: us-east-1
@@ -80,9 +82,80 @@ jobs:
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
           echo "matrix=${MATRIX_JSON}" >> "$GITHUB_OUTPUT"
 
-  build-push-and-update-manifest:
+  security-scan:
     if: needs.detect-changes.outputs.has_changes == 'true'
     needs: detect-changes
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve service metadata
+        id: service
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICE="${{ matrix.service }}"
+          SERVICE_PATH="Microservices/${SERVICE}"
+
+          case "${SERVICE}" in
+            analytics-service|flag-service|targeting-service)
+              echo "runtime=python" >> "$GITHUB_OUTPUT"
+              ;;
+            auth-service|evaluation-service)
+              echo "runtime=go" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported service: ${SERVICE}"
+              exit 1
+              ;;
+          esac
+
+          echo "service_path=${SERVICE_PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Python
+        if: steps.service.outputs.runtime == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Python security checks
+        if: steps.service.outputs.runtime == 'python'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pip-audit bandit
+          pip-audit -r "${{ steps.service.outputs.service_path }}/requirements.txt" --progress-spinner off
+          bandit -r "${{ steps.service.outputs.service_path }}" -ll
+
+      - name: Setup Go
+        if: steps.service.outputs.runtime == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "${{ steps.service.outputs.service_path }}/go.mod"
+          cache: false
+
+      - name: Run Go security checks
+        if: steps.service.outputs.runtime == 'go'
+        shell: bash
+        working-directory: "${{ steps.service.outputs.service_path }}"
+        run: |
+          set -euo pipefail
+          go mod download
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  build-push-and-update-manifest:
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    needs:
+      - detect-changes
+      - security-scan
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
@@ -110,8 +183,8 @@ jobs:
           SERVICE="${{ matrix.service }}"
           SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-12)"
           TAG="sha-${SHORT_SHA}"
-          DEPLOYMENT_FILE="Kubernetes/${SERVICE}/deployment.yml"
-          REPOSITORY="toggle-feature/${SERVICE}"
+          DEPLOYMENT_FILE="GitOps/${SERVICE}/deployment.yml"
+          REPOSITORY="${SERVICE}"
           CONTAINER_NAME="${SERVICE}"
 
           IMAGE_URI="${ECR_REGISTRY}/${REPOSITORY}:${TAG}"
@@ -123,16 +196,31 @@ jobs:
           echo "container_name=${CONTAINER_NAME}" >> "$GITHUB_OUTPUT"
           echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push image
+      - name: Build image
         shell: bash
         run: |
           set -euo pipefail
           docker build \
             -t "${{ steps.image.outputs.image_uri }}" \
             "Microservices/${{ steps.image.outputs.service }}"
+
+      - name: Scan container image with Trivy
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.image.outputs.image_uri }}
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Push image
+        shell: bash
+        run: |
+          set -euo pipefail
           docker push "${{ steps.image.outputs.image_uri }}"
 
-      - name: Update Kubernetes deployment image
+      - name: Update GitOps deployment image
         shell: bash
         run: |
           set -euo pipefail
@@ -152,6 +240,9 @@ jobs:
               re.MULTILINE,
           )
           updated, count = pattern.subn(rf"\1{image_uri}", content, count=1)
+          if count == 0:
+              fallback = re.compile(r"(containers:\s*\n(?:[ \t].*\n)*?[ \t]+image:\s*)([^\n]+)", re.MULTILINE)
+              updated, count = fallback.subn(rf"\1{image_uri}", content, count=1)
           if count == 0:
               print(f"Could not find image field for container '{container_name}' in {deployment_file}")
               sys.exit(1)
@@ -174,4 +265,12 @@ jobs:
             exit 0
           fi
           git commit -m "ci: update ${{ steps.image.outputs.service }} image to ${{ steps.image.outputs.tag }}"
-          git push
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          for i in 1 2 3; do
+            if git push origin "${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+          echo "Failed to push manifest update after retries."
+          exit 1

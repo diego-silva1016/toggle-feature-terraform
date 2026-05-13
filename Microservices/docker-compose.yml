@@ -1,4 +1,4 @@
-version: "3.9"
+﻿version: "3.9"
 
 services:
 
@@ -135,6 +135,7 @@ services:
       AWS_REGION: us-east-1
       AWS_SQS_URL: http://sqs:9324/000000000000/analytics-queue
       AWS_SQS_ENDPOINT: http://sqs:9324
+      AWS_DYNAMODB_ENDPOINT: http://dynamodb:8000
       AWS_DYNAMODB_TABLE: analytics-events
       AWS_ACCESS_KEY_ID: dummy
       AWS_SECRET_ACCESS_KEY: dummy

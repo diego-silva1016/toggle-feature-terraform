@@ -1,10 +1,6 @@
-data "aws_iam_role" "lab_role" {
-  name = "LabRole"
-}
-
-resource "aws_eks_cluster" "cluster" {
+﻿resource "aws_eks_cluster" "cluster" {
   name     = var.cluster_name
-  role_arn = data.aws_iam_role.lab_role.arn
+  role_arn = var.cluster_role_arn
 
   vpc_config {
     subnet_ids              = var.subnet_ids
@@ -12,8 +8,15 @@ resource "aws_eks_cluster" "cluster" {
   }
 
   kubernetes_network_config {
-    elastic_load_balancing {
-      enabled = var.enable_elastic_load_balancing
+  }
+
+  compute_config {
+    enabled = false
+  }
+
+  storage_config {
+    block_storage {
+      enabled = false
     }
   }
 }
@@ -21,7 +24,7 @@ resource "aws_eks_cluster" "cluster" {
 resource "aws_eks_node_group" "nodes" {
   cluster_name    = aws_eks_cluster.cluster.name
   node_group_name = "${var.cluster_name}-nodes"
-  node_role_arn   = data.aws_iam_role.lab_role.arn
+  node_role_arn   = var.node_role_arn
   subnet_ids      = var.subnet_ids
 
   scaling_config {
@@ -32,7 +35,7 @@ resource "aws_eks_node_group" "nodes" {
 
   instance_types = [var.instance_type]
 
-  capacity_type = "ON_DEMAND"
+  capacity_type = var.capacity_type
 
   depends_on = [ aws_eks_cluster.cluster ]
 }

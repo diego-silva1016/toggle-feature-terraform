@@ -1,5 +1,4 @@
-# Security Group para o Banco de Dados
-resource "aws_security_group" "rds_sg" {
+﻿resource "aws_security_group" "rds_sg" {
   name        = "${var.project_name}-rds-sg"
   description = "Permite acesso ao Postgres"
   vpc_id      = var.vpc_id
@@ -8,7 +7,7 @@ resource "aws_security_group" "rds_sg" {
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr] # Permite apenas tráfego interno da VPC
+    cidr_blocks = [var.vpc_cidr]
   }
 
   egress {
@@ -21,7 +20,6 @@ resource "aws_security_group" "rds_sg" {
   tags = var.tags
 }
 
-# Grupo de Subnets (Onde o banco vai "morar")
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-subnet-group"
   subnet_ids = var.private_subnet_ids
@@ -44,7 +42,6 @@ resource "aws_secretsmanager_secret_version" "db_password_val" {
   secret_string = random_password.db_password.result
 }
 
-# Instância RDS Postgres
 resource "aws_db_instance" "postgres" {
   identifier             = var.db_identifier
   engine                 = "postgres"

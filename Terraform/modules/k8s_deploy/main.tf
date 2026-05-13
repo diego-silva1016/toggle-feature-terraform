@@ -1,4 +1,4 @@
-locals {
+﻿locals {
   manifest_paths = flatten([
     for service in var.services : [
       for file_name in fileset("${var.manifest_base_path}/${service}", "*.y*ml") :

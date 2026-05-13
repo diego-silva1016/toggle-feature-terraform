@@ -1,16 +1,13 @@
-variable "vpc_name" {
-  description = "Name of the VPC"
+﻿variable "vpc_name" {
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
   type        = string
   default     = "10.0.0.0/16"
 }
 
 variable "public_subnets" {
-  description = "Configuração das subnets públicas"
   type = map(object({
     cidr_block = string
     az         = string
@@ -22,7 +19,6 @@ variable "public_subnets" {
 }
 
 variable "private_subnets" {
-  description = "Configuração das subnets privadas"
   type = map(object({
     cidr_block = string
     az         = string
@@ -34,13 +30,11 @@ variable "private_subnets" {
 }
 
 variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway for private subnets"
   type        = bool
   default     = true
 }
 
 variable "tags" {
-  description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
 }

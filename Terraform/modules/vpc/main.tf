@@ -1,17 +1,14 @@
-# AWS VPC 
-resource "aws_vpc" "main" {
+﻿resource "aws_vpc" "main" {
   cidr_block = var.vpc_cidr
   tags       = merge(var.tags, { Name = var.vpc_name })
 }
 
-# Internet Gateway
 resource "aws_internet_gateway" "main" {
   depends_on = [aws_vpc.main]
   vpc_id     = aws_vpc.main.id
   tags       = merge(var.tags, { Name = "${var.vpc_name}-igw" })
 }
 
-# Public Subnets
 resource "aws_subnet" "public" {
   depends_on = [aws_vpc.main]
   for_each   = var.public_subnets
@@ -31,7 +28,6 @@ resource "aws_subnet" "public" {
   )
 }
 
-# Private Subnets
 resource "aws_subnet" "private" {
   depends_on = [aws_vpc.main]
   for_each   = var.private_subnets
@@ -49,7 +45,6 @@ resource "aws_subnet" "private" {
   )
 }
 
-# Elastic IPs para NAT Gateways
 resource "aws_eip" "nat" {
   for_each = var.enable_nat_gateway ? { "default" = true } : {}
   domain   = "vpc"
@@ -58,18 +53,15 @@ resource "aws_eip" "nat" {
   depends_on = [aws_internet_gateway.main]
 }
 
-# NAT Gateways
 resource "aws_nat_gateway" "main" {
   for_each      = var.enable_nat_gateway ? { "default" = true } : {}
   allocation_id = aws_eip.nat["default"].id
-  # Seleciona a primeira subnet pública disponível
   subnet_id = values(aws_subnet.public)[0].id
 
   tags       = merge(var.tags, { Name = "${var.vpc_name}-nat" })
   depends_on = [aws_internet_gateway.main]
 }
 
-# Public Route Table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -82,7 +74,6 @@ resource "aws_route_table" "public" {
   depends_on = [aws_internet_gateway.main]
 }
 
-# Associate public subnets
 resource "aws_route_table_association" "public" {
   for_each       = aws_subnet.public
   subnet_id      = each.value.id
@@ -90,9 +81,7 @@ resource "aws_route_table_association" "public" {
   depends_on     = [aws_subnet.public]
 }
 
-# Private Route Table
 resource "aws_route_table" "private" {
-  # Cria uma única tabela privada se o NAT estiver ativo
   for_each = var.enable_nat_gateway ? { "main" = true } : {}
   vpc_id   = aws_vpc.main.id
 
@@ -105,11 +94,9 @@ resource "aws_route_table" "private" {
   depends_on = [aws_vpc.main]
 }
 
-# Associate private subnets
 resource "aws_route_table_association" "private" {
   for_each  = aws_subnet.private
   subnet_id = each.value.id
-  # Associa à tabela privada se ela existir, senão não faz nada (ou associa a uma padrão)
   route_table_id = length(aws_route_table.private) > 0 ? aws_route_table.private["main"].id : null
   depends_on     = [aws_subnet.private]
 }

@@ -1,11 +1,11 @@
-variable "project_name" { type = string }
+﻿variable "project_name" { type = string }
 variable "vpc_id" { type = string }
 variable "vpc_cidr" { type = string }
 variable "private_subnet_ids" { type = list(string) }
 variable "db_identifier" { type = string }
 variable "db_name" { type = string }
 variable "db_username" { type = string }                                     
-variable "db_engine_version" { default = "15.4" }
+variable "db_engine_version" { default = "15" }
 variable "instance_class" { default = "db.t3.micro" }
 variable "allocated_storage" { default = 20 }
 variable "tags" { type = map(string) }

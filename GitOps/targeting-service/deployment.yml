@@ -1,0 +1,41 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: targeting-service-deployment
+  namespace: targeting-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: targeting-service
+  template:
+    metadata:
+      labels:
+        app: targeting-service
+    spec:
+      containers:
+        m0829113486.dkr.ecr.us-east-1.amazonaws.com/targeting-service:sha-3df0c1530b85
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "64Mi" 
+              cpu: "250m"   
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8003
+          env:
+            - name: AUTH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: targeting-service-configmap 
+                  key: AUTH_SERVICE_URL
+          envFrom:
+            - secretRef: 
+                name: targeting-service-secret
+          startupProbe:
+            httpGet: { path: /health, port: 8003 }
+            periodSeconds: 5
+            failureThreshold: 6
+

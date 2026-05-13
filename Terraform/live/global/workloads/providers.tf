@@ -13,6 +13,13 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+
+  dynamic "assume_role" {
+    for_each = var.terraform_assume_role_arn != "" ? [1] : []
+    content {
+      role_arn = var.terraform_assume_role_arn
+    }
+  }
 }
 
 data "aws_eks_cluster" "selected" {

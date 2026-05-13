@@ -1,0 +1,47 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluation-service-deployment
+  namespace: evaluation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evaluation-service
+  template:
+    metadata:
+      labels:
+        app: evaluation-service
+    spec:
+      containers:
+        - name: evaluation-service
+          image: 550829113486.dkr.ecr.us-east-1.amazonaws.com/evaluation-service:sha-17da9ccb9c73
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "64Mi" 
+              cpu: "5m"   
+            limits:
+              memory: "128Mi"
+              cpu: "10m"
+          ports:
+            - containerPort: 8004
+          env:
+            - name: FLAG_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: evaluation-service-configmap 
+                  key: FLAG_SERVICE_URL
+            - name: TARGETING_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: evaluation-service-configmap 
+                  key: TARGETING_SERVICE_URL 
+          envFrom:
+            - secretRef: 
+                name: evaluation-service-secret
+          startupProbe:
+            httpGet: { path: /health, port: 8004 }
+            periodSeconds: 5
+            failureThreshold: 6
+
