@@ -11,13 +11,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: write
 
 concurrency:
   group: microservices-cicd-${{ github.ref }}
   cancel-in-progress: true
 
+# AWS: secrets AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY e (opcional) AWS_SESSION_TOKEN
+# (credenciais temporárias, ex. painel AWS Academy / STS). ECR_REGISTRY = URI do registry sem https.
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
@@ -170,7 +171,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
