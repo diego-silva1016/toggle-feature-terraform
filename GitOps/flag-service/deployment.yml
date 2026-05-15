@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flag-service-deployment
@@ -14,7 +14,8 @@ spec:
         app: flag-service
     spec:
       containers:
-        m0829113486.dkr.ecr.us-east-1.amazonaws.com/flag-service:sha-dd867d8a9fb8
+        - name: flag-service
+          image: 550829113486.dkr.ecr.us-east-1.amazonaws.com/flag-service:sha-dd867d8a9fb8
           imagePullPolicy: IfNotPresent
           resources:
             requests:

@@ -1,6 +1,6 @@
 aws_region      = "us-east-1"
-cluster_name    = module.eks_cluster.name
-manifest_base_path = "../../../../Kubernetes"
+cluster_name    = "toggle-feature-cluster"
+manifest_base_path = "../../../../GitOps"
 
 services = [
   "analytics-service",

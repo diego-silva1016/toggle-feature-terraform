@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: analytics-service-deployment
@@ -14,7 +14,8 @@ spec:
         app: analytics-service
     spec:
       containers:
-        m0829113486.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-5f98fe6fe47e
+        - name: analytics-service
+          image: 550829113486.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-5f98fe6fe47e
           imagePullPolicy: IfNotPresent
           resources:
             requests:

@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: targeting-service-deployment
@@ -14,7 +14,8 @@ spec:
         app: targeting-service
     spec:
       containers:
-        m0829113486.dkr.ecr.us-east-1.amazonaws.com/targeting-service:sha-3df0c1530b85
+        - name: targeting-service
+          image: 550829113486.dkr.ecr.us-east-1.amazonaws.com/targeting-service:sha-3df0c1530b85
           imagePullPolicy: IfNotPresent
           resources:
             requests:
