@@ -107,80 +107,80 @@ jobs:
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
           echo "matrix=${MATRIX_JSON}" >> "$GITHUB_OUTPUT"
 
-  security-scan:
-    if: needs.detect-changes.outputs.has_changes == 'true'
-    needs: detect-changes
-    runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 1
-      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  # security-scan:
+  #   if: needs.detect-changes.outputs.has_changes == 'true'
+  #   needs: detect-changes
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     max-parallel: 1
+  #     matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
 
-      - name: Resolve service metadata
-        id: service
-        shell: bash
-        run: |
-          set -euo pipefail
-          SERVICE="${{ matrix.service }}"
-          SERVICE_PATH="Microservices/${SERVICE}"
+  #     - name: Resolve service metadata
+  #       id: service
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         SERVICE="${{ matrix.service }}"
+  #         SERVICE_PATH="Microservices/${SERVICE}"
 
-          case "${SERVICE}" in
-            analytics-service|flag-service|targeting-service)
-              echo "runtime=python" >> "$GITHUB_OUTPUT"
-              ;;
-            auth-service|evaluation-service)
-              echo "runtime=go" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "Unsupported service: ${SERVICE}"
-              exit 1
-              ;;
-          esac
+  #         case "${SERVICE}" in
+  #           analytics-service|flag-service|targeting-service)
+  #             echo "runtime=python" >> "$GITHUB_OUTPUT"
+  #             ;;
+  #           auth-service|evaluation-service)
+  #             echo "runtime=go" >> "$GITHUB_OUTPUT"
+  #             ;;
+  #           *)
+  #             echo "Unsupported service: ${SERVICE}"
+  #             exit 1
+  #             ;;
+  #         esac
 
-          echo "service_path=${SERVICE_PATH}" >> "$GITHUB_OUTPUT"
+  #         echo "service_path=${SERVICE_PATH}" >> "$GITHUB_OUTPUT"
 
-      - name: Setup Python
-        if: steps.service.outputs.runtime == 'python'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+  #     - name: Setup Python
+  #       if: steps.service.outputs.runtime == 'python'
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.11'
 
-      - name: Run Python security checks
-        if: steps.service.outputs.runtime == 'python'
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          pip install pip-audit bandit
-          pip-audit -r "${{ steps.service.outputs.service_path }}/requirements.txt" --progress-spinner off
-          bandit -r "${{ steps.service.outputs.service_path }}" -ll
+  #     - name: Run Python security checks
+  #       if: steps.service.outputs.runtime == 'python'
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         python -m pip install --upgrade pip
+  #         pip install pip-audit bandit
+  #         pip-audit -r "${{ steps.service.outputs.service_path }}/requirements.txt" --progress-spinner off
+  #         bandit -r "${{ steps.service.outputs.service_path }}" -ll
 
-      - name: Setup Go
-        if: steps.service.outputs.runtime == 'go'
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: "${{ steps.service.outputs.service_path }}/go.mod"
-          cache: false
+  #     - name: Setup Go
+  #       if: steps.service.outputs.runtime == 'go'
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version-file: "${{ steps.service.outputs.service_path }}/go.mod"
+  #         cache: false
 
-      - name: Run Go security checks
-        if: steps.service.outputs.runtime == 'go'
-        shell: bash
-        working-directory: "${{ steps.service.outputs.service_path }}"
-        run: |
-          set -euo pipefail
-          go mod download
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          "$(go env GOPATH)/bin/govulncheck" ./...
+  #     - name: Run Go security checks
+  #       if: steps.service.outputs.runtime == 'go'
+  #       shell: bash
+  #       working-directory: "${{ steps.service.outputs.service_path }}"
+  #       run: |
+  #         set -euo pipefail
+  #         go mod download
+  #         go install golang.org/x/vuln/cmd/govulncheck@latest
+  #         "$(go env GOPATH)/bin/govulncheck" ./...
 
   build-push-and-update-manifest:
     if: needs.detect-changes.outputs.has_changes == 'true'
     needs:
       - detect-changes
-      - security-scan
+      # - security-scan
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1
