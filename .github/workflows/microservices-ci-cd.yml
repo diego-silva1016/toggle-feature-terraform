@@ -252,26 +252,58 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
+          import os
           import pathlib
           import re
           import sys
-          import os
+
+          def line_eol(raw: str) -> str:
+              if raw.endswith("\r\n"):
+                  return "\r\n"
+              if raw.endswith("\n"):
+                  return "\n"
+              return "\n"
+
+          def update_container_image(content: str, container_name: str, new_image: str) -> tuple[str, bool]:
+              """Atualiza só a linha image: do item containers cujo - name: bate com container_name."""
+              lines = content.splitlines(True)
+              name_line = re.compile(
+                  rf"^(?P<indent>\s*)-\s+name:\s*{re.escape(container_name)}\s*(?:#.*)?\s*$"
+              )
+              sibling = re.compile(r"^(\s*)-\s+name:\s*\S")
+              image_line = re.compile(r"^(\s*image:\s*)(.+?)\s*$")
+
+              for i, line in enumerate(lines):
+                  stripped = line.rstrip("\r\n")
+                  m = name_line.match(stripped)
+                  if not m:
+                      continue
+                  list_indent = m.group("indent")
+                  for j in range(i + 1, len(lines)):
+                      raw = lines[j]
+                      s = raw.rstrip("\r\n")
+                      sm = sibling.match(s)
+                      if sm and sm.group(1) == list_indent:
+                          if not name_line.match(s):
+                              break
+                      im = image_line.match(s)
+                      if im:
+                          eol = line_eol(raw)
+                          lines[j] = im.group(1) + new_image + eol
+                          return "".join(lines), True
+                  return content, False
+              return content, False
 
           deployment_file = pathlib.Path(os.environ["DEPLOYMENT_FILE"])
           container_name = os.environ["CONTAINER_NAME"]
           image_uri = os.environ["IMAGE_URI"]
-
-          content = deployment_file.read_text(encoding="utf-8")
-          pattern = re.compile(
-              rf"(-\s+name:\s*{re.escape(container_name)}\s*\n(?:[ \t].*\n)*?[ \t]+image:\s*)([^\n]+)",
-              re.MULTILINE,
-          )
-          updated, count = pattern.subn(rf"\1{image_uri}", content, count=1)
-          if count == 0:
-              fallback = re.compile(r"(containers:\s*\n(?:[ \t].*\n)*?[ \t]+image:\s*)([^\n]+)", re.MULTILINE)
-              updated, count = fallback.subn(rf"\1{image_uri}", content, count=1)
-          if count == 0:
-              print(f"Could not find image field for container '{container_name}' in {deployment_file}")
+          text = deployment_file.read_text(encoding="utf-8")
+          updated, ok = update_container_image(text, container_name, image_uri)
+          if not ok:
+              print(
+                  f"Could not find container '{container_name}' with an image: line after it in {deployment_file}",
+                  file=sys.stderr,
+              )
               sys.exit(1)
           deployment_file.write_text(updated, encoding="utf-8")
           PY

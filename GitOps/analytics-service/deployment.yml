@@ -14,19 +14,20 @@ spec:
         app: analytics-service
     spec:
       containers:
-        T6325869534.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-b7e1ea7b28cc
+        - name: analytics-service
+          image: 550829113486.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-b7e1ea7b28cc
           imagePullPolicy: IfNotPresent
           resources:
             requests:
-              memory: "64Mi" 
-              cpu: "20m"   
+              memory: "64Mi"
+              cpu: "20m"
             limits:
               memory: "128Mi"
               cpu: "35m"
           ports:
             - containerPort: 8005
           envFrom:
-            - secretRef: 
+            - secretRef:
                 name: analytics-service-secret
           startupProbe:
             httpGet: { path: /health, port: 8005 }
