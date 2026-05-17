@@ -4,7 +4,6 @@ ENV CGO_ENABLED=0 \
     GOARCH=amd64
 
 WORKDIR /app
-COPY auth-service/go.mod ./
 COPY . .
 RUN go mod tidy && go build -o myapp .
 
