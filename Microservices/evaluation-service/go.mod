@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.51.10
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
+	go.opentelemetry.io/instrumentation/database/sql/otelsql v0.1.0
 	toggle-feature/otel v0.0.0
 )
 

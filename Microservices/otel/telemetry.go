@@ -13,11 +13,13 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 )
 
@@ -69,6 +71,19 @@ func Init(ctx context.Context, serviceName string) (func(context.Context) error,
 	logger := otelslog.NewLogger(serviceName, otelslog.WithLoggerProvider(loggerProvider))
 	slog.SetDefault(slog.New(logger))
 
+	traceExporter, err := otlptracegrpc.New(ctx)
+	if err != nil {
+		_ = meterProvider.Shutdown(ctx)
+		_ = loggerProvider.Shutdown(ctx)
+		return nil, fmt.Errorf("trace exporter: %w", err)
+	}
+
+	traceProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithResource(res),
+	)
+	otel.SetTracerProvider(traceProvider)
+
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
@@ -80,6 +95,9 @@ func Init(ctx context.Context, serviceName string) (func(context.Context) error,
 			errs = append(errs, err)
 		}
 		if err := loggerProvider.Shutdown(ctx); err != nil {
+			errs = append(errs, err)
+		}
+		if err := traceProvider.Shutdown(ctx); err != nil {
 			errs = append(errs, err)
 		}
 		if len(errs) > 0 {

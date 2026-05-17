@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/joho/godotenv v1.5.1
+	go.opentelemetry.io/instrumentation/database/sql/otelsql v0.1.0
 	toggle-feature/otel v0.0.0
 )
 

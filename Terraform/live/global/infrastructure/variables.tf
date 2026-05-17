@@ -103,3 +103,11 @@ variable "terraform_assume_role_arn" {
   default     = ""
   description = "Se não vazio, o provider AWS do Terraform usa sts:AssumeRole neste ARN antes das chamadas à API."
 }
+
+# New Relic APM Configuration
+variable "newrelic_api_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "New Relic API key for OTLP endpoint. Get it from https://one.newrelic.com/api-keys"
+}

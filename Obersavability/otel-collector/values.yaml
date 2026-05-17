@@ -52,14 +52,22 @@ config:
       endpoint: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
       tls:
         insecure: true
+    otlp/newrelic:
+      endpoint: otlp.nr-data.net:4317
+      headers:
+        api-key: ${NEW_RELIC_API_KEY}
 
   service:
     pipelines:
       metrics:
         receivers: [otlp]
         processors: [resource, batch]
-        exporters: [prometheusremotewrite]
+        exporters: [prometheusremotewrite, otlp/newrelic]
       logs:
         receivers: [otlp]
         processors: [resource, batch]
-        exporters: [loki]
+        exporters: [loki, otlp/newrelic]
+      traces:
+        receivers: [otlp]
+        processors: [resource, batch]
+        exporters: [otlp/newrelic]

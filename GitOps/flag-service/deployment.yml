@@ -40,6 +40,11 @@ spec:
               value: grpc
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.namespace=flag-service
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: flag-service-secret
+                  key: OTEL_EXPORTER_OTLP_HEADERS
           envFrom:
             - secretRef: 
                 name: flag-service-secret

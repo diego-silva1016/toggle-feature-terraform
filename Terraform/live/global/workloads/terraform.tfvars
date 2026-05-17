@@ -7,5 +7,6 @@ services = [
   "auth-service",
   "evaluation-service",
   "flag-service",
-  "targeting-service"
+  "targeting-service",
+  "argocd"
 ]

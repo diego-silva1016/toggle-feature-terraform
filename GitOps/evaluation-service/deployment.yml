@@ -45,6 +45,11 @@ spec:
               value: grpc
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.namespace=evaluation-service
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: evaluation-service-secret
+                  key: OTEL_EXPORTER_OTLP_HEADERS
           envFrom:
             - secretRef: 
                 name: evaluation-service-secret

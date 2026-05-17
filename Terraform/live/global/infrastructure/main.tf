@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.25"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.0"
+    }
     helm = {
       source  = "hashicorp/helm"
       version = "~> 2.0"
@@ -40,29 +44,38 @@ module "vpc" {
 module "eks" {
   source = "../../../modules/eks"
 
-  cluster_name                   = var.cluster_name
-  cluster_role_arn               = var.lab_role_arn
-  subnet_ids                     = concat(values(module.vpc.public_subnet_ids), module.vpc.private_subnet_ids_list)
-  enable_elastic_load_balancing  = var.enable_elastic_load_balancing
-  node_role_arn                  = var.lab_role_arn
-  desired_size                   = var.desired_size
-  max_size                       = var.max_size
-  min_size                       = var.min_size
-  instance_type                  = var.instance_type
-  capacity_type                  = "SPOT"
+  cluster_name                  = var.cluster_name
+  cluster_role_arn              = var.lab_role_arn
+  subnet_ids                    = concat(values(module.vpc.public_subnet_ids), module.vpc.private_subnet_ids_list)
+  enable_elastic_load_balancing = var.enable_elastic_load_balancing
+  node_role_arn                 = var.lab_role_arn
+  desired_size                  = var.desired_size
+  max_size                      = var.max_size
+  min_size                      = var.min_size
+  instance_type                 = var.instance_type
+  capacity_type                 = "SPOT"
 }
 
 data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
 
-provider "kubernetes" {
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
+}
+
+
+provider "kubectl" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
-provider "kubectl" {
+provider "kubernetes" {
   host                   = module.eks.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.cluster.token
@@ -119,16 +132,16 @@ module "rds_targeting" {
 module "redis" {
   source = "../../../modules/redis"
 
-  cluster_name      = "toggle-feature-redis"
-  engine            = "redis"
-  engine_version    = "7.0"
-  node_type         = "cache.t3.micro"
+  cluster_name         = "toggle-feature-redis"
+  engine               = "redis"
+  engine_version       = "7.0"
+  node_type            = "cache.t3.micro"
   parameter_group_name = "default.redis7"
-  port              = 6379
-  subnet_group_name = "redis-subnet-group"
-  subnet_ids        = module.vpc.private_subnet_ids_list
-  vpc_id            = module.vpc.vpc_id
-  vpc_cidr          = var.vpc_cidr
+  port                 = 6379
+  subnet_group_name    = "redis-subnet-group"
+  subnet_ids           = module.vpc.private_subnet_ids_list
+  vpc_id               = module.vpc.vpc_id
+  vpc_cidr             = var.vpc_cidr
 
   tags = var.tags
 }
@@ -136,29 +149,29 @@ module "redis" {
 module "dynamodb" {
   source = "../../../modules/dynamodb"
 
-  table_name     = "ToggleMasterAnalytics"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
-  hash_key_type  = "S"
+  table_name    = "ToggleMasterAnalytics"
+  billing_mode  = "PAY_PER_REQUEST"
+  hash_key      = "id"
+  hash_key_type = "S"
   stream_specification = {
     stream_enabled   = false
     stream_view_type = null
   }
-  ttl_attribute_name = null
+  ttl_attribute_name             = null
   point_in_time_recovery_enabled = true
-  tags = var.tags
+  tags                           = var.tags
 }
 
 module "sqs" {
   source = "../../../modules/sqs"
 
-  queue_name                  = "evaluation-queue"
-  delay_seconds               = 0
-  max_message_size            = 262144
-  message_retention_seconds   = 86400
-  visibility_timeout_seconds  = 30
-  receive_wait_time_seconds   = 0
-  tags                        = var.tags
+  queue_name                 = "evaluation-queue"
+  delay_seconds              = 0
+  max_message_size           = 262144
+  message_retention_seconds  = 86400
+  visibility_timeout_seconds = 30
+  receive_wait_time_seconds  = 0
+  tags                       = var.tags
 }
 
 module "ecr" {
@@ -175,10 +188,10 @@ module "ecr" {
 }
 
 resource "helm_release" "argocd" {
-  name       = "argocd"
-  repository = "https://argoproj.github.io/argo-helm"
-  chart      = "argo-cd"
-  namespace  = "argocd"
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  namespace        = "argocd"
   create_namespace = true
 
   values = [
@@ -192,7 +205,7 @@ resource "helm_release" "argocd" {
   ]
 }
 
-resource "kubernetes_namespace" "monitoring" {
+resource "kubernetes_namespace_v1" "monitoring" {
   metadata {
     name = "monitoring"
   }
@@ -202,7 +215,7 @@ resource "helm_release" "prometheus" {
   name       = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
-  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  namespace  = kubernetes_namespace_v1.monitoring.metadata[0].name
   version    = "55.0.0" # Versão estável em 2026
 
   # Configurações customizadas via arquivo externo ou inline
@@ -215,34 +228,44 @@ resource "helm_release" "loki" {
   name       = "loki"
   repository = "https://grafana.github.io/helm-charts"
   chart      = "loki-stack"
-  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  namespace  = kubernetes_namespace_v1.monitoring.metadata[0].name
 
-  set = [
-    {
-      name  = "loki.persistence.enabled"
-      value = "true"
-    },
-    {
-      name  = "loki.persistence.size"
-      value = "1Gi"
-    },
-    {
-      name  = "promtail.enabled"
-      value = "false"
-    },
-  ]
+  set {
+    name  = "loki.persistence.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "loki.persistence.size"
+    value = "1Gi"
+  }
+
+  set {
+    name  = "promtail.enabled"
+    value = "false"
+  }
+
+  set {
+    name  = "loki.persistence.enabled"
+    value = "false"
+  }
 }
 
 resource "helm_release" "otel_collector" {
   name       = "otel-collector"
   repository = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart      = "opentelemetry-collector"
-  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  namespace  = kubernetes_namespace_v1.monitoring.metadata[0].name
   version    = "0.108.0"
 
   values = [
     file("../../../../Obersavability/otel-collector/values.yaml")
   ]
+
+  set {
+    name  = "config.exporters.otlp/newrelic.headers.api-key"
+    value = var.newrelic_api_key
+  }
 
   depends_on = [
     helm_release.prometheus,

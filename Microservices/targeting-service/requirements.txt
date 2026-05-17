@@ -3,6 +3,7 @@ opentelemetry-exporter-otlp-proto-grpc==1.29.0
 opentelemetry-instrumentation-flask==0.50b0
 opentelemetry-instrumentation-logging==0.50b0
 opentelemetry-instrumentation-requests==0.50b0
+opentelemetry-instrumentation-psycopg2==0.46b0
 opentelemetry-sdk==1.29.0
 Werkzeug==3.1.6
 psycopg2-binary==2.9.9
