@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: analytics-service
-          image: 246325869534.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-fb8f5b84b06c
+          image: 246325869534.dkr.ecr.us-east-1.amazonaws.com/analytics-service:sha-64096516e82b
           imagePullPolicy: IfNotPresent
           resources:
             requests:
