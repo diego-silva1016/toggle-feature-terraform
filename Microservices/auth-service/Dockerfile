@@ -5,8 +5,7 @@ ENV CGO_ENABLED=0 \
 
 WORKDIR /app
 COPY auth-service/go.mod ./
-COPY otel ./otel
-COPY auth-service/ .
+COPY . .
 RUN go mod tidy && go build -o myapp .
 
 FROM alpine:3.21 AS final

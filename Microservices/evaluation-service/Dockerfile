@@ -4,9 +4,7 @@ ENV CGO_ENABLED=0 \
     GOARCH=amd64
 
 WORKDIR /app
-COPY evaluation-service/go.mod evaluation-service/go.sum ./
-COPY otel ./otel
-COPY evaluation-service/ .
+COPY . .
 RUN go mod tidy && go build -o myapp .
 
 FROM alpine:3.21 AS final
