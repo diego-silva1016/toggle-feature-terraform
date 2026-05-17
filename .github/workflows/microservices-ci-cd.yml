@@ -229,7 +229,7 @@ jobs:
           set -euo pipefail
           docker build \
             -t "${{ steps.image.outputs.image_uri }}" \
-            "Microservices/${{ steps.image.outputs.service }}"
+            "Microservices"
 
       # - name: Scan container image with Trivy
       #   uses: aquasecurity/trivy-action@0.35.0
