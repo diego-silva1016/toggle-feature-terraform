@@ -6,7 +6,10 @@ require (
 	github.com/aws/aws-sdk-go v1.51.10
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
+	toggle-feature/otel v0.0.0
 )
+
+replace toggle-feature/otel => ./otel
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

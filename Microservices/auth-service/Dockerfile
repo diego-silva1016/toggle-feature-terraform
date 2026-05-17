@@ -4,21 +4,13 @@ ENV CGO_ENABLED=0 \
     GOARCH=amd64
 
 WORKDIR /app
+COPY auth-service/go.mod ./
+COPY otel ./otel
+COPY auth-service/ .
+RUN go mod tidy && go build -o myapp .
 
-COPY . .
-RUN go mod tidy
-
-# O binário será gerado com o nome 'myapp' dentro de /app
-RUN go build -o myapp .
-
-# Estágio final
 FROM alpine:3.21 AS final
-
 WORKDIR /root/
-# Copiamos apenas o EXECUTÁVEL do estágio builder para a pasta atual
 COPY --from=builder /app/myapp .
-
-EXPOSE 8080
-
-# Executamos o binário (agora ele está em /root/myapp)
+EXPOSE 8001
 CMD ["./myapp"]

@@ -2,7 +2,7 @@
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -34,7 +34,7 @@ func (a *App) evaluationHandler(w http.ResponseWriter, r *http.Request) {
 		if _, ok := err.(*NotFoundError); ok {
 			result = false
 		} else {
-			log.Printf("Erro ao avaliar flag '%s': %v", flagName, err)
+			slog.Error("flag evaluation failed", "flag", flagName, "error", err)
 			http.Error(w, `{"error": "Erro interno ao avaliar a flag"}`, http.StatusBadGateway)
 			return
 		}

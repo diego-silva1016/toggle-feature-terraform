@@ -56,12 +56,10 @@ data "aws_eks_cluster_auth" "cluster" {
   name = module.eks.cluster_name
 }
 
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
-  }
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
 }
 
 provider "kubectl" {
@@ -194,3 +192,60 @@ resource "helm_release" "argocd" {
   ]
 }
 
+resource "kubernetes_namespace" "monitoring" {
+  metadata {
+    name = "monitoring"
+  }
+}
+
+resource "helm_release" "prometheus" {
+  name       = "prometheus"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "kube-prometheus-stack"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  version    = "55.0.0" # Versão estável em 2026
+
+  # Configurações customizadas via arquivo externo ou inline
+  values = [
+    file("../../../../Obersavability/prometheus-values.yaml")
+  ]
+}
+
+resource "helm_release" "loki" {
+  name       = "loki"
+  repository = "https://grafana.github.io/helm-charts"
+  chart      = "loki-stack"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+
+  set = [
+    {
+      name  = "loki.persistence.enabled"
+      value = "true"
+    },
+    {
+      name  = "loki.persistence.size"
+      value = "1Gi"
+    },
+    {
+      name  = "promtail.enabled"
+      value = "false"
+    },
+  ]
+}
+
+resource "helm_release" "otel_collector" {
+  name       = "otel-collector"
+  repository = "https://open-telemetry.github.io/opentelemetry-helm-charts"
+  chart      = "opentelemetry-collector"
+  namespace  = kubernetes_namespace.monitoring.metadata[0].name
+  version    = "0.108.0"
+
+  values = [
+    file("../../../../Obersavability/otel-collector/values.yaml")
+  ]
+
+  depends_on = [
+    helm_release.prometheus,
+    helm_release.loki,
+  ]
+}

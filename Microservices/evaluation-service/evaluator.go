@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -33,13 +33,13 @@ func (a *App) getCombinedFlagInfo(flagName string) (*CombinedFlagInfo, error) {
 	if err == nil {
 		var info CombinedFlagInfo
 		if err := json.Unmarshal([]byte(val), &info); err == nil {
-			log.Printf("Cache HIT para flag '%s'", flagName)
+			slog.Debug("cache hit", "flag", flagName)
 			return &info, nil
 		}
-		log.Printf("Erro ao desserializar cache para flag '%s': %v", flagName, err)
+		slog.Warn("cache deserialize failed", "flag", flagName, "error", err)
 	}
 	
-	log.Printf("Cache MISS para flag '%s'", flagName)
+	slog.Debug("cache miss", "flag", flagName)
 	info, err := a.fetchFromServices(flagName)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (a *App) fetchFromServices(flagName string) (*CombinedFlagInfo, error) {
 		return nil, flagErr
 	}
 	if ruleErr != nil {
-		log.Printf("Aviso: Nenhuma regra de segmentaÃ§Ã£o encontrada para '%s'. Usando padrÃ£o.", flagName)
+		slog.Warn("no targeting rules found; using default", "flag", flagName)
 	}
 
 	return &CombinedFlagInfo{
@@ -154,7 +154,7 @@ func (a *App) runEvaluationLogic(info *CombinedFlagInfo, userID string) bool {
 	if rule.Type == "PERCENTAGE" {
 		percentage, ok := rule.Value.(float64)
 		if !ok {
-			log.Printf("Erro: valor da regra de porcentagem nÃ£o Ã© um nÃºmero para a flag '%s'", info.Flag.Name)
+			slog.Error("percentage rule value is not numeric", "flag", info.Flag.Name)
 			return false
 		}
 		

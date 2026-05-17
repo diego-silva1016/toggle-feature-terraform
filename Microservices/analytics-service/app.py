@@ -133,7 +133,10 @@ def sqs_worker_loop():
             time.sleep(10)
 
 
+from otel.telemetry import init_telemetry
+
 app = Flask(__name__)
+init_telemetry(app)
 
 @app.route('/health')
 def health():

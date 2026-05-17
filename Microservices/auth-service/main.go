@@ -1,13 +1,16 @@
 ﻿package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	tfotel "toggle-feature/otel"
 )
 
 type App struct {
@@ -17,6 +20,20 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load()
+
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "auth-service"
+	}
+
+	ctx := context.Background()
+	shutdown, err := tfotel.Init(ctx, serviceName)
+	if err != nil {
+		log.Fatalf("OpenTelemetry init failed: %v", err)
+	}
+	defer func() {
+		_ = shutdown(context.Background())
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -48,13 +65,17 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", app.healthHandler)
+	mux.Handle("/health", tfotel.WrapHandler("/health", http.HandlerFunc(app.healthHandler)))
+	mux.Handle("/validate", tfotel.WrapHandler("/validate", http.HandlerFunc(app.validateKeyHandler)))
+	mux.Handle(
+		"/admin/keys",
+		tfotel.WrapHandler(
+			"/admin/keys",
+			app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)),
+		),
+	)
 
-	mux.HandleFunc("/validate", app.validateKeyHandler)
-
-	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
-
-	log.Printf("ServiÃ§o de AutenticaÃ§Ã£o (Go) rodando na porta %s", port)
+	slog.Info("auth-service listening", "port", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +91,7 @@ func connectDB(databaseURL string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	log.Println("Conectado ao PostgreSQL com sucesso!")
+	slog.Info("connected to PostgreSQL")
 	return db, nil
 }
 
@@ -85,7 +106,7 @@ func ensureSchema(db *sql.DB) error {
 		)
 	`)
 	if err == nil {
-		log.Println("Schema do auth-service verificado com sucesso.")
+		slog.Info("auth-service schema verified")
 	}
 	return err
 }

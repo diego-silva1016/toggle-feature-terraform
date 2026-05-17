@@ -3,6 +3,7 @@
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	tfotel "toggle-feature/otel"
 )
 
 var ctx = context.Background()
@@ -27,6 +29,20 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load()
+
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "evaluation-service"
+	}
+
+	initCtx := context.Background()
+	shutdown, err := tfotel.Init(initCtx, serviceName)
+	if err != nil {
+		log.Fatalf("OpenTelemetry init failed: %v", err)
+	}
+	defer func() {
+		_ = shutdown(context.Background())
+	}()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -51,7 +67,7 @@ func main() {
 	sqsQueueURL := os.Getenv("AWS_SQS_URL")
 	awsRegion := os.Getenv("AWS_REGION")
 	if sqsQueueURL == "" {
-		log.Println("AtenÃ§Ã£o: AWS_SQS_URL nÃ£o definida. Eventos nÃ£o serÃ£o enviados.")
+		slog.Warn("AWS_SQS_URL not set; analytics events will not be sent")
 	}
 	if awsRegion == "" && sqsQueueURL != "" {
 		log.Fatal("AWS_REGION deve ser definida para usar SQS")
@@ -66,7 +82,7 @@ func main() {
 	if _, err := rdb.Ping(ctx).Result(); err != nil {
 		log.Fatalf("NÃ£o foi possÃ­vel conectar ao Redis: %v", err)
 	}
-	log.Println("Conectado ao Redis com sucesso!")
+	slog.Info("connected to Redis")
 
 	var sqsSvc *sqs.SQS
 	if sqsQueueURL != "" {
@@ -75,7 +91,7 @@ func main() {
 			log.Fatalf("NÃ£o foi possÃ­vel criar sessÃ£o AWS: %v", err)
 		}
 		sqsSvc = sqs.New(sess)
-		log.Println("Cliente SQS inicializado com sucesso.")
+		slog.Info("SQS client initialized")
 	}
 
 	httpClient := &http.Client{
@@ -92,10 +108,10 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", app.healthHandler)
-	mux.HandleFunc("/evaluate", app.evaluationHandler)
+	mux.Handle("/health", tfotel.WrapHandler("/health", http.HandlerFunc(app.healthHandler)))
+	mux.Handle("/evaluate", tfotel.WrapHandler("/evaluate", http.HandlerFunc(app.evaluationHandler)))
 
-	log.Printf("ServiÃ§o de AvaliaÃ§Ã£o (Go) rodando na porta %s", port)
+	slog.Info("evaluation-service listening", "port", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal(err)
 	}

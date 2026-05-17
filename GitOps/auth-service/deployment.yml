@@ -29,6 +29,14 @@ spec:
         env:
         - name: PORT
           value: "8001"
+        - name: OTEL_SERVICE_NAME
+          value: auth-service
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: service.namespace=auth-service
         envFrom:
         - secretRef:
             name: auth-service-secret

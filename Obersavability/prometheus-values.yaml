@@ -1,0 +1,14 @@
+prometheus:
+  prometheusSpec:
+    enableRemoteWriteReceiver: true
+
+grafana:
+  adminPassword: "admin" # Troque por uma senha forte ou use Secrets
+  ingress:
+    enabled: false # Mude para true se tiver um Ingress Controller
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: false

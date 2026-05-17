@@ -5,7 +5,10 @@ go 1.21
 require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/joho/godotenv v1.5.1
+	toggle-feature/otel v0.0.0
 )
+
+replace toggle-feature/otel => ./otel
 
 require (
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect

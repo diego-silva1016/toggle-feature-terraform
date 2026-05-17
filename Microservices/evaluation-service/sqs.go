@@ -2,7 +2,7 @@
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,7 +18,7 @@ type EvaluationEvent struct {
 
 func (a *App) sendEvaluationEvent(userID, flagName string, result bool) {
 	if a.SqsSvc == nil || a.SqsQueueURL == "" {
-		log.Printf("[SQS_DISABLED] Evento: User '%s', Flag '%s', Result '%t'", userID, flagName, result)
+		slog.Info("sqs disabled; evaluation event skipped", "user", userID, "flag", flagName, "result", result)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (a *App) sendEvaluationEvent(userID, flagName string, result bool) {
 
 	body, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("Erro ao serializar evento SQS: %v", err)
+		slog.Error("failed to serialize sqs event", "error", err)
 		return
 	}
 
@@ -41,8 +41,8 @@ func (a *App) sendEvaluationEvent(userID, flagName string, result bool) {
 	})
 
 	if err != nil {
-		log.Printf("Erro ao enviar mensagem para SQS: %v", err)
+		slog.Error("failed to send sqs message", "error", err)
 	} else {
-		log.Printf("Evento de avaliaÃ§Ã£o enviado para SQS (Flag: %s)", flagName)
+		slog.Info("evaluation event sent to sqs", "flag", flagName)
 	}
 }

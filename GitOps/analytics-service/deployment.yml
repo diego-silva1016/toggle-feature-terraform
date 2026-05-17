@@ -26,6 +26,15 @@ spec:
               cpu: "35m"
           ports:
             - containerPort: 8005
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: analytics-service
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.namespace=analytics-service
           envFrom:
             - secretRef:
                 name: analytics-service-secret

@@ -14,9 +14,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-load_dotenv() 
+load_dotenv()
+
+from otel.telemetry import init_telemetry
 
 app = Flask(__name__)
+init_telemetry(app, instrument_requests=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL")
